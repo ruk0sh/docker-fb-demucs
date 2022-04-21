@@ -6,6 +6,8 @@
 # author: adefossez
 
 import logging
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
 
 import torch.hub
 
