@@ -43,9 +43,13 @@ parser = argparse.ArgumentParser(
 add_flags(parser)
 parser.add_argument("--out_dir", type=str, default="enhanced",
                     help="directory putting enhanced wav files")
+parser.add_argument("--converted_dir", type=str, default="converted",
+                    help="directory putting converted wav files")
 parser.add_argument("--batch_size", default=1, type=int, help="batch size")
 parser.add_argument('-v', '--verbose', action='store_const', const=logging.DEBUG,
                     default=logging.INFO, help="more loggging")
+parser.add_argument('-e','--valid-extensions', nargs='+', required=False, default=["wav"],
+                    help='Provide valid audioextensions, space separated')
 
 group = parser.add_mutually_exclusive_group()
 group.add_argument("--noisy_dir", type=str, default=None,
@@ -92,7 +96,8 @@ def get_dataset(args, sample_rate, channels):
         with open(paths.noisy_json) as f:
             files = json.load(f)
     elif paths.noisy_dir:
-        files = find_audio_files(paths.noisy_dir)
+        exts = [f".{ext}" for ext in args.valid_extensions]
+        files = find_audio_files(paths.noisy_dir, converted_dir=args.converted_dir, exts=exts)
     else:
         logger.warning(
             "Small sample set was not provided by either noisy_dir or noisy_json. "

@@ -13,11 +13,13 @@ import os
 import sys
 
 import torchaudio
+from pydub import AudioSegment
 from torch.nn import functional as F
 
 from .dsp import convert_audio
 
 Info = namedtuple("Info", ["length", "sample_rate", "channels"])
+CONVERSION_NEEDED_EXTENSIONS = [".m4a"]
 
 
 def get_info(path):
@@ -30,12 +32,20 @@ def get_info(path):
         return Info(siginfo.length // siginfo.channels, siginfo.rate, siginfo.channels)
 
 
-def find_audio_files(path, exts=[".wav"], progress=True):
+def find_audio_files(path, converted_dir, exts=[".wav"], progress=True):
+    converted_dir = Path(converted_dir)
+    converted_dir.mkdir(exist_ok=True, parents=True)
     audio_files = []
     for root, folders, files in os.walk(path, followlinks=True):
         for file in files:
             file = Path(root) / file
             if file.suffix.lower() in exts:
+                # Convert to wav if format not supported by backend
+                if file.suffix.lower() in CONVERSION_NEEDED_EXTENSIONS:
+                    audio = AudioSegment.from_file(file)
+                    converted_path = converted_dir / file.with_suffix(".wav").name
+                    audio.export(converted_path, format='wav')
+                    file = converted_path
                 audio_files.append(str(file.resolve()))
     meta = []
     for idx, file in enumerate(audio_files):

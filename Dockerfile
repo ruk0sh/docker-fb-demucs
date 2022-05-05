@@ -11,6 +11,6 @@ RUN apt-get update \
     && wget -P /root/.cache/torch/hub/checkpoints https://dl.fbaipublicfiles.com/adiyoss/denoiser/dns64-a7761ff99a7d5bb6.th \
     && wget -P /root/.cache/torch/hub/checkpoints https://dl.fbaipublicfiles.com/adiyoss/denoiser/valentini_nc-93fc4337.th \
     && pip install --upgrade pip \
-    && pip install denoiser julius
+    && pip install denoiser julius pydub
 
 ENTRYPOINT ["python",  "-m", "denoiser.enhance"]
