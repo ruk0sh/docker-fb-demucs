@@ -50,6 +50,8 @@ parser.add_argument('-v', '--verbose', action='store_const', const=logging.DEBUG
                     default=logging.INFO, help="more loggging")
 parser.add_argument('-e','--valid-extensions', nargs='+', required=False, default=["wav"],
                     help='Provide valid audioextensions, space separated')
+parser.add_argument('--sr', required=False, type=int, default=None,
+                    help='Sample rate for output audio files')
 
 group = parser.add_mutually_exclusive_group()
 group.add_argument("--noisy_dir", type=str, default=None,
@@ -73,17 +75,19 @@ def get_estimate(model, noisy, args):
     return estimate
 
 
-def save_wavs(estimates, noisy_sigs, filenames, out_dir, sr=16_000):
+def save_wavs(estimates, noisy_sigs, filenames, out_dir, resampler, sr=16_000):
     # Write result
     for estimate, noisy, filename in zip(estimates, noisy_sigs, filenames):
         filename = os.path.join(out_dir, os.path.basename(filename).rsplit(".", 1)[0])
-        write(noisy, filename + "_noisy.wav", sr=sr)
-        write(estimate, filename + "_enhanced.wav", sr=sr)
+        write(noisy, filename + "_noisy.wav", resampler, sr=sr)
+        write(estimate, filename + "_enhanced.wav", resampler, sr=sr)
 
 
-def write(wav, filename, sr=16_000):
+def write(wav, filename, resampler, sr=16_000):
     # Normalize audio if it prevents clipping
     wav = wav / max(wav.abs().max().item(), 1)
+    if resampler:
+        wav = resampler(wav)
     torchaudio.save(filename, wav.cpu(), sr)
 
 
@@ -107,9 +111,10 @@ def get_dataset(args, sample_rate, channels):
                     sample_rate=sample_rate, channels=channels, convert=True)
 
 
-def _estimate_and_save(model, noisy_signals, filenames, out_dir, args):
+def _estimate_and_save(model, noisy_signals, filenames, out_dir, args, resampler):
     estimate = get_estimate(model, noisy_signals, args)
-    save_wavs(estimate, noisy_signals, filenames, out_dir, sr=model.sample_rate)
+    sr = args.sr if args.sr else model.sample_rate
+    save_wavs(estimate, noisy_signals, filenames, out_dir, resampler, sr=sr)
 
 
 def enhance(args, model=None, local_out_dir=None):
@@ -127,6 +132,14 @@ def enhance(args, model=None, local_out_dir=None):
         return
     loader = distrib.loader(dset, batch_size=1)
 
+    resampler = None
+    if args.sr and args.sr != model.sample_rate:
+        resampler = torchaudio.transforms.Resample(
+            orig_freq=model.sample_rate,
+            new_freq=args.sr,
+            resampling_method="sinc_interpolation",
+        )
+
     if distrib.rank == 0:
         os.makedirs(out_dir, exist_ok=True)
     distrib.barrier()
@@ -141,11 +154,12 @@ def enhance(args, model=None, local_out_dir=None):
             if args.device == 'cpu' and args.num_workers > 1:
                 pendings.append(
                     pool.submit(_estimate_and_save,
-                                model, noisy_signals, filenames, out_dir, args))
+                                model, noisy_signals, filenames, out_dir, args, resampler))
             else:
                 # Forward
                 estimate = get_estimate(model, noisy_signals, args)
-                save_wavs(estimate, noisy_signals, filenames, out_dir, sr=model.sample_rate)
+                sr = args.sr if args.sr else model.sample_rate
+                save_wavs(estimate, noisy_signals, filenames, out_dir, resampler, sr=sr)
 
         if pendings:
             print('Waiting for pending jobs...')
