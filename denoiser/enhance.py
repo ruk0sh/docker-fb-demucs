@@ -46,12 +46,14 @@ parser.add_argument("--out_dir", type=str, default="enhanced",
 parser.add_argument("--converted_dir", type=str, default="converted",
                     help="directory putting converted wav files")
 parser.add_argument("--batch_size", default=1, type=int, help="batch size")
-parser.add_argument('-v', '--verbose', action='store_const', const=logging.DEBUG,
+parser.add_argument("-v", "--verbose", action="store_const", const=logging.DEBUG,
                     default=logging.INFO, help="more loggging")
-parser.add_argument('-e','--valid-extensions', nargs='+', required=False, default=["wav"],
-                    help='Provide valid audioextensions, space separated')
-parser.add_argument('--sr', required=False, type=int, default=None,
-                    help='Sample rate for output audio files')
+parser.add_argument("-e","--valid_extensions", nargs="+", required=False, default=["wav"],
+                    help="Provide valid audioextensions, space separated.")
+parser.add_argument("--sr", required=False, type=int, default=None,
+                    help='Sample rate for output audio files.')
+parser.add_argument("--keep_noisy", required=False, action="store_true",
+                    help="If specified, original noisy audios will be saved to output folder.")
 
 group = parser.add_mutually_exclusive_group()
 group.add_argument("--noisy_dir", type=str, default=None,
@@ -75,11 +77,12 @@ def get_estimate(model, noisy, args):
     return estimate
 
 
-def save_wavs(estimates, noisy_sigs, filenames, out_dir, resampler, sr=16_000):
+def save_wavs(estimates, noisy_sigs, filenames, out_dir, resampler, sr=16_000, keep_noisy=False):
     # Write result
     for estimate, noisy, filename in zip(estimates, noisy_sigs, filenames):
         filename = os.path.join(out_dir, os.path.basename(filename).rsplit(".", 1)[0])
-        write(noisy, filename + "_noisy.wav", resampler, sr=sr)
+        if keep_noisy:
+            write(noisy, filename + "_noisy.wav", resampler, sr=sr)
         write(estimate, filename + "_enhanced.wav", resampler, sr=sr)
 
 
@@ -114,7 +117,7 @@ def get_dataset(args, sample_rate, channels):
 def _estimate_and_save(model, noisy_signals, filenames, out_dir, args, resampler):
     estimate = get_estimate(model, noisy_signals, args)
     sr = args.sr if args.sr else model.sample_rate
-    save_wavs(estimate, noisy_signals, filenames, out_dir, resampler, sr=sr)
+    save_wavs(estimate, noisy_signals, filenames, out_dir, resampler, sr=sr, keep_noisy=args.keep_noisy)
 
 
 def enhance(args, model=None, local_out_dir=None):
