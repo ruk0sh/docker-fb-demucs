@@ -13,4 +13,4 @@ RUN apt-get update \
 
 COPY . /app
 
-ENTRYPOINT ["python",  "-m", "denoiser.enhance"]
+ENTRYPOINT ["bash", "docker-entrypoint.sh"]
