@@ -30,8 +30,10 @@ _NOTE_: everything after image tag is just command line arguments of denoiser in
 sudo docker run --rm --shm-size 8G \
   -v /path/to/dataset/on/your/computer:/app/data \
   ruk0sh/fb-demucs:0.4-with-models \
-  --master64 --noisy_dir=data/audio --out_dir=data/audio-denoised
+  --master64 --noisy_dir=/app/data/audio --out_dir=/app/data/audio-denoised
 ```
+<br>⚠️ `/app` is working directory of denoiser inside container, so it's highly recommended to use this as parent folder for any mounts.
+
 Some more important `docker run` flags here:
 
 `--shm-size 8G` sets size of shared memory allocated for runnning container to 8 GB. You may try other values.
